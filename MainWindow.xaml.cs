@@ -1,94 +1,200 @@
-﻿using System.Windows;
+﻿using System.ComponentModel;
+using System.Text;
+using System.Windows;
 using System.Windows.Controls;
-namespace tictactoe
+using System.Windows.Data;
+using System.Windows.Documents;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Navigation;
+using System.Windows.Shapes;
+
+namespace WpfApp4
 {
+    /// <summary>
+    /// Interaction logic for MainWindow.xaml
+    /// </summary>
     public partial class MainWindow : Window
     {
-        public string CurrentPlayer="X";
-        public int NumberOfMoves = 0;
-        public bool GameOver = false;
-        public bool Thinking = false;
+        public GameBoard TicTacToe = new GameBoard();
         public MainWindow()
         {
             InitializeComponent();
+            this.DataContext = TicTacToe;
+
         }
+
         private void Button_Click(object sender, RoutedEventArgs e)
         {
-            if (GameOver || NumberOfMoves == 9 || Thinking) return;
-            var button=sender as Button;
-            button.Content = CurrentPlayer;
-            CurrentPlayer = "O";
-            button.IsEnabled = false;
-            NumberOfMoves++;
-            ShowWinner();
-            if (NumberOfMoves == 9) return;
-            if (GameOver) return;
-            Thinking=true;
-            _=CPUMove();
+            var clickedButton = sender as Button;
+            clickedButton.Background = Brushes.White;
+            clickedButton.Content = TicTacToe.currentPlayer;
+            clickedButton.IsHitTestVisible = false;
+            TicTacToe.UpdateBoard(clickedButton.Name);
         }
-        private async Task CPUMove()
+        private void Restart_Click(object sender, RoutedEventArgs e)
         {
-            await Task.Delay(2000);
-            int row = 0;
-            int column = 0;
-            do
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(MyGrid); i++)
             {
-                row = Random.Shared.Next(0, 3);
-                column = Random.Shared.Next(0, 3);
+                var child = VisualTreeHelper.GetChild(MyGrid, i) as Button;
+                if (child == null) continue;
+                child.Content = null;
+                child.IsHitTestVisible = true;
             }
-            while ((string)(asd.Children.Cast<Button>().First(e => Grid.GetRow(e) == row && Grid.GetColumn(e) == column).Content) != "");
-            var selectedbutton = asd.Children.Cast<Button>().First(e => Grid.GetRow(e) == row && Grid.GetColumn(e) == column);
-            selectedbutton.Content = CurrentPlayer;
-            selectedbutton.IsEnabled = false;
-            NumberOfMoves++;
-            CurrentPlayer = "X";
-            Thinking =false;
-            ShowWinner();
+            TicTacToe = new GameBoard();
+            this.DataContext = TicTacToe;
         }
-        private string GetPlayer(int row, int column)
+    }
+
+    public class GameBoard : INotifyPropertyChanged
+    {
+        
+        public enum CurrentPlayer
         {
-            return (string)asd.Children.Cast<Button>().First(e => Grid.GetRow(e) == row && Grid.GetColumn(e) == column).Content;
+            X = 1,
+            O
         }
-        private string GetWinner()
+
+        private int turn = 1;
+        public CurrentPlayer currentPlayer = CurrentPlayer.X;
+        private bool hasWon = false;
+        public bool HasWon
         {
-            for (int i = 0; i < 3; i++)
+            get { return hasWon; }
+            set { hasWon = value; NotifyPropertyChanged("HasWon"); }
+        }
+
+        private Dictionary<string, int> board = new Dictionary<string, int>()
             {
-                if (GetPlayer(i, 0) != "" && GetPlayer(i, 0) == GetPlayer(i, 1) && GetPlayer(i, 0) == GetPlayer(i, 2))
+                {"TopXLeft",0 },
+                {"TopXMiddle",0 },
+                {"TopXRight",0 },
+                {"CenterXLeft",0 },
+                {"CenterXMiddle",0 },
+                {"CenterXRight",0 },
+                {"BottomXLeft",0 },
+                {"BottomXMiddle",0 },
+                {"BottomXRight",0 }
+            };
+
+        public void NotifyPropertyChanged(string info)
+        {
+            if (PropertyChanged != null)
+            {
+                PropertyChanged(this, new PropertyChangedEventArgs(info));
+            }
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+
+        private bool CheckIfWon(string buttonName)
+        {
+            if (WonInRow(buttonName))
+            {
+                return true;
+            }
+            else if (WonInColumn(buttonName))
+            {
+                return true;
+            }
+            else if (WonInDiagonal(buttonName))
+            {
+                return true;
+            }
+            else
+                return false;
+        }
+
+        private bool WonInRow(string name)
+        {
+            string row = name.Substring(0, name.IndexOf('X') - 1);
+
+            foreach (var element in board)
+            {
+                string keyName = element.Key;
+                string rowOfElement = keyName.Substring(0, keyName.IndexOf('X') - 1);
+
+                if (rowOfElement == row)
                 {
-                    return GetPlayer(i, 0);
-                }
-                if (GetPlayer(0, i) != "" && GetPlayer(0, i) == GetPlayer(1, i) && GetPlayer(0, i) == GetPlayer(2, i))
-                {
-                    return GetPlayer(0, i);
+                    if (element.Value != (int)currentPlayer)
+                        return false;
                 }
             }
-            if (GetPlayer(0, 0) != "" && GetPlayer(0, 0) == GetPlayer(1, 1) && GetPlayer(0, 0) == GetPlayer(2, 2))
-            {
-                return GetPlayer(0, 0);
-            }
-            if (GetPlayer(0, 2) != "" && GetPlayer(0, 2) == GetPlayer(1, 1) && GetPlayer(0, 2) == GetPlayer(2, 0))
-            {
-                return GetPlayer(0, 2);
-            }
-            return "";
+
+            return true;
         }
-        private void ShowWinner()
+
+        private bool WonInColumn(string name)
         {
-            var winner = GetWinner();
-            if (NumberOfMoves==9 && winner=="")
+            string column = name.Substring(name.IndexOf('X') + 1);
+
+            foreach (var element in board)
             {
-                MessageBox.Show("Draw");
-                GameOver=true;
-                return;
+                string keyName = element.Key;
+                string columnOfElement = keyName.Substring(keyName.IndexOf('X') + 1);
+
+                if (columnOfElement == column)
+                {
+                    if (element.Value != (int)currentPlayer)
+                        return false;
+                }
             }
-            if (winner=="") return;
-            GameOver=true;
-            if (winner=="X")
+
+            return true;
+        }
+
+        private bool WonInDiagonal(string name)
+        {
+            if (name == "TopXLeft" || name == "CenterXMiddle" || name == "BottomXRight")
             {
-                MessageBox.Show("Player Won");
-                return;
+                if (board["CenterXMiddle"] == (int)currentPlayer && board["BottomXRight"] == (int)currentPlayer && board["TopXLeft"] == (int)currentPlayer)
+                {
+                    return true;
+                }
+                else
+                    return false;
             }
-            MessageBox.Show("CPU Won");
+            if (name == "TopXRight" || name == "CenterXMiddle" || name == "BottomXLeft")
+            {
+                if (board["CenterXMiddle"] == (int)currentPlayer && board["BottomXLeft"] == (int)currentPlayer && board["TopXRight"] == (int)currentPlayer)
+                {
+                    return true;
+                }
+                else
+                    return false;
+            }
+            else
+                return false;
+        }
+
+        private void UpdateDictionary(string buttonName)
+        {
+            string tileName = buttonName;
+
+            board[tileName] = (int)currentPlayer;
+        }
+
+        public void UpdateBoard(string buttonName)
+        {
+            UpdateDictionary(buttonName);
+
+            if (turn >= 5)
+            {
+                if (CheckIfWon(buttonName))
+                {
+                    HasWon = true;
+                }
+            }
+
+            turn++;
+
+            if (currentPlayer == CurrentPlayer.X)
+                currentPlayer = CurrentPlayer.O;
+
+            else if (currentPlayer == CurrentPlayer.O)
+                currentPlayer = CurrentPlayer.X;
         }
     }
 }
